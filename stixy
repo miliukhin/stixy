@@ -31,7 +31,7 @@ while getopts "nrpi:b:w:m:o:I:O:" o; do case "${o}" in
 esac done
 
 # [ -n "${paper+x}" ] || paper="a5"
-file="$(basename $input)"
+file="$(basename "$input")"
 base="${file%.*}"
 ext="${file##*.}"
 stroke_in="${inner_stroke:-38}"
@@ -92,7 +92,7 @@ stickers="$infile"
 	disk:"$((stroke_in / 2))" \
 	+channel -fill white \
 	-colorize 100 \
-	-colorspace $cspace \) \
+	-colorspace "$cspace" \) \
 	+swap \
 	-composite \
 	"$prepfile" &&
@@ -106,7 +106,7 @@ stickers="$infile"
 	disk:"$((stroke_out / 2))" \
 	+channel \
 	-fill white \
-	-colorize 100 -colorspace $cspace \) \
+	-colorize 100 -colorspace "$cspace" \) \
 	+swap \
 	-composite \
 	"${prepdir}/${base}-stickers-stroke-out.${ext}" &&
@@ -121,7 +121,6 @@ sed -i \
 
 if [ -n "${background+x}" ] ; then
 	# create background file
-	background="$background"
 	[ -n "${geometry+x}" ] &&
 	convert "$background" \
 		-geometry "$bg_w"x"$bg_h" \
@@ -132,7 +131,7 @@ else
 	magick -size "${bg_w}x${bg_h}" \
 		"plasma:fractal" \
 		-swirl 180 \
-		-colorspace $cspace \
+		-colorspace "$cspace" \
 		"${prepdir}/${base}-fractal.${ext}" &&
 	background="${prepdir}/${base}-fractal.${ext}"
 fi
@@ -140,12 +139,12 @@ fi
 # combine extended stickers and background
 magick "$background" "$stickers" \
     -gravity center -composite \
-    -colorspace $cspace \
+    -colorspace "$cspace" \
     "${prepdir}/${base}-composite.${ext}"
 
 # pdf-ing
 magick "${prepdir}/${base}-composite.${ext}" \
-	-colorspace $cspace \
+	-colorspace "$cspace" \
 	-units PixelsPerInch \
 	-density 300 \
 	"${prepdir}/${base}-composite.pdf"
