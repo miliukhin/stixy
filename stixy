@@ -1,8 +1,25 @@
 #!/usr/bin/env bash
 
-# Requires cairosvg, potrace, imagemagick and qpdf
+# Requires cairosvg, potrace, imagemagick and pymupdf
 set -e
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/stixy"
+
+usage() {
+    echo "$(basename "$0") usage:
+  -i  input image (required, has to store transparency info, e.g. png, tif)
+  -o  output pdf file name/path
+  -I  inner stroke (default = 38)
+  -O  outer stroke (default = 19)
+  -n  no strokes at all
+  -w  resize to width
+  -m  margin to add to background
+  -b  background image (if none, fractal background is generated)
+  -p  purge old build files instead of running"
+}
+
+if (( $# == 0 )); then
+    usage && exit 1
+fi
 
 while getopts "nrpi:b:w:m:o:I:O:" o; do case "${o}" in
 	i) input="$OPTARG" ;;
@@ -17,20 +34,9 @@ while getopts "nrpi:b:w:m:o:I:O:" o; do case "${o}" in
 		read -r confirm
 		echo "$confirm" | grep -iq "^y$" && rm -rf "$cache" && echo "Done."
 		exit ;;
-	*) echo "$(basename "$0") usage:
-  -i  input image (required, has to store transparency info, e.g. png, tif)
-  -o  output pdf file name/path
-  -I  inner stroke (default = 38)
-  -O  inner stroke (default = 19)
-  -n  no strokes at all
-  -w  resize to width
-  -m  margin to add to background
-  -b  background image (if none, fractal background is generated)
-  -p  purge old build files instead of running" && exit 1
-
+	*) usage && exit 1
 esac done
 
-# [ -n "${paper+x}" ] || paper="a5"
 file="$(basename "$input")"
 base="${file%.*}"
 ext="${file##*.}"
