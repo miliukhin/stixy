@@ -1,0 +1,37 @@
+#!/usr/bin/python
+"""
+Combine pdf files into a layered pdf
+"""
+import fitz
+import sys
+
+# source file
+src = fitz.open(sys.argv[1])
+src2 = fitz.open(sys.argv[2])
+
+# new PDF with one page
+doc = fitz.open()
+source_rect = src[0].rect
+page = doc.new_page(width=source_rect.width, height=source_rect.height)
+
+r0 = page.rect
+r1 = r0
+
+# layer toggle settings
+xref0 = doc.add_ocg("ocg0", on=True)
+xref1 = doc.add_ocg("ocg1", on=True)
+doc.set_layer(
+    -1,
+    on=[xref0, xref1]
+)
+
+page.show_pdf_page(r0, src, 0, oc=xref0)
+page.show_pdf_page(r1, src2, 0, oc=xref1)
+
+doc.save(
+    sys.argv[3],
+    garbage=3,
+    pretty=True,
+    deflate=True,
+    clean=True,
+)

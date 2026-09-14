@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+
+# Requires cairosvg, potrace, imagemagick and qpdf
+set -e
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/stixy"
+
+while getopts "nrpi:b:w:m:o:I:O:" o; do case "${o}" in
+	i) input="$OPTARG" ;;
+	I) inner_stroke="$OPTARG" ;;
+	O) outer_stroke="$OPTARG" ;;
+	b) background="$OPTARG" ;;
+	n) inner_stroke=0 && outer_stroke=0 ;;
+	w) geometry="$OPTARG" ;;
+	m) margin="$OPTARG" ;;
+	o) outname="$OPTARG" ;;
+	p) echo "Purge old build files in $cache? [y/N]"
+		read -r confirm
+		echo "$confirm" | grep -iq "^y$" && rm -rf "$cache" && echo "Done."
+		exit ;;
+	*) echo "$(basename "$0") usage:
+  -i  input image (required, has to store transparency info, e.g. png, tif)
+  -o  output pdf file name/path
+  -I  inner stroke (default = 38)
+  -O  inner stroke (default = 19)
+  -n  no strokes at all
+  -w  resize to width
+  -m  margin to add to background
+  -b  background image (if none, fractal background is generated)
+  -p  purge old build files instead of running" && exit 1
+
+esac done
+
+# [ -n "${paper+x}" ] || paper="a5"
+file="$(basename $input)"
+base="${file%.*}"
+ext="${file##*.}"
+stroke_in="${inner_stroke:-38}"
+stroke_out="${outer_stroke:-19}"
+stroke_color="#ff0055"
+prepdir="${prepdir:-$cache/$file}"
+outfile=${outname:-$input"_print.pdf"}
+cspace=$(identify -format "%[colorspace]" "$input")
+
+mkdir -p "$prepdir"
+
+# prepare input file
+infile="${prepdir}/${base}-in.${ext}"
+if [ -n "${geometry+x}" ] ; then
+	convert "$input" -geometry "$geometry" "$infile"
+else
+	cp -f "$input" "$infile"
+fi
+
+
+bg_w_h="$(magick identify -format '%w %h' "$infile")"
+bg_w="${bg_w_h% *}"
+bg_h="${bg_w_h#* }"
+
+if [ -n "${margin+x}" ] ; then
+	# make extended transparent bg
+	bg_w="$((bg_w + margin))"
+	bg_h="$((bg_h + margin))"
+	magick -size "$bg_w"x"$bg_h" \
+		"plasma:fractal" \
+		-fill white \
+		"${prepdir}/${base}-ext-bg.${ext}"
+	convert -colorspace sRGB \
+		-alpha on \
+		-size "$bg_w"x"$bg_h" \
+		xc:rgb\(255,255,255,1\) \
+		-transparent white \
+		"${prepdir}/${base}-ext-bg.${ext}"
+	# compose an image
+	magick "${prepdir}/${base}-ext-bg.${ext}" \
+		-colorspace sRGB \
+		"$infile" \
+		-gravity center \
+		-composite \
+		"$infile"
+fi
+
+# prepare sticker graphics
+prepfile="$infile"
+stickers="$infile"
+# make inner stroke
+[ "${stroke_in}" != "0" ] &&
+	prepfile="${prepdir}/${base}-stroke-in.${ext}" &&
+	convert "$infile" \
+	\( +clone \
+	-channel A \
+	-morphology dilate \
+	disk:"$((stroke_in / 2))" \
+	+channel -fill white \
+	-colorize 100 \
+	-colorspace $cspace \) \
+	+swap \
+	-composite \
+	"$prepfile" &&
+	stickers="$prepfile"
+# make outer stroke
+[ "${stroke_out}" != "0" ] &&
+	convert "$prepfile" \
+	\( +clone \
+	-channel A \
+	-morphology dilate \
+	disk:"$((stroke_out / 2))" \
+	+channel \
+	-fill white \
+	-colorize 100 -colorspace $cspace \) \
+	+swap \
+	-composite \
+	"${prepdir}/${base}-stickers-stroke-out.${ext}" &&
+	stickers="${prepdir}/${base}-stickers-stroke-out.${ext}"
+
+# trace and create contour svg
+magick "$prepfile" -alpha extract -negate "${prepdir}/${base}-shade.ppm"
+potrace -s "${prepdir}/${base}-shade.ppm" -o "${prepdir}/${base}-traced.svg" &&
+sed -i \
+	's/fill.*>/style="fill:none;stroke:'"$stroke_color"';stroke-opacity:1;stroke-width:30.99999998;stroke-dasharray:none">/' \
+	"${prepdir}/${base}-traced.svg"
+
+if [ -n "${background+x}" ] ; then
+	# create background file
+	background="$background"
+	[ -n "${geometry+x}" ] &&
+	convert "$background" \
+		-geometry "$bg_w"x"$bg_h" \
+		"${prepdir}/${base}-bg.${ext}" &&
+	background="${prepdir}/${base}-bg.${ext}"
+else
+	# create background if not provided
+	magick -size "${bg_w}x${bg_h}" \
+		"plasma:fractal" \
+		-swirl 180 \
+		-colorspace $cspace \
+		"${prepdir}/${base}-fractal.${ext}" &&
+	background="${prepdir}/${base}-fractal.${ext}"
+fi
+
+# combine extended stickers and background
+magick "$background" "$stickers" \
+    -gravity center -composite \
+    -colorspace $cspace \
+    "${prepdir}/${base}-composite.${ext}"
+
+# pdf-ing
+magick "${prepdir}/${base}-composite.${ext}" \
+	-colorspace $cspace \
+	-units PixelsPerInch \
+	-density 300 \
+	"${prepdir}/${base}-composite.pdf"
+cairosvg "${prepdir}/${base}-traced.svg" \
+	--output-width "$bg_w" \
+	--output-height "$bg_h" \
+	-d 300 \
+	-o "${prepdir}/${base}-traced.pdf"
+pdflayers "${prepdir}/${base}-composite.pdf" \
+	"${prepdir}/${base}-traced.pdf" \
+	"$outfile"
+# qpdf --empty --pages \
+# 	"${prepdir}/${base}-composite.pdf" \
+# 	"${prepdir}/${base}-traced.pdf" \
+# 	-- \
+# 	"$outfile"
