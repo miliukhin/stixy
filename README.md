@@ -5,6 +5,8 @@
 This script lets you easily prepare stickers and stickerpacks for printing and cutting.
 Just give it an image with a transparent background and it will create a PDF with both printable sticker graphics and contours for the cutting plotter which you can send directly to the printing company.
 
+**Showcase video [here](https://www.youtube.com/watch?v=DsEKy788dXU).**
+
 ## Install
 ### Dependencies
 The script requires:
