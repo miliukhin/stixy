@@ -8,14 +8,14 @@ Just give it an image with a transparent background and it will create a PDF wit
 ## Install
 ### Dependencies
 The script requires:
-* cairosvg
-* potrace
-* imagemagick
-* python-pymupdf (for pdflayers python script)
+* potrace - for contour tracing
+* cairosvg - for pdfmaking from svg
+* imagemagick - all of image manipulation
+* qpdf - to compile the final pdf
 
 To install on Arch Linux:
 ```
-pacman -S python-cairosvg python-pymupdf potrace imagemagick
+pacman -S python-cairosvg qpdf potrace imagemagick
 ```
 
 ### stixy itself
@@ -49,3 +49,6 @@ More options:
   -b  background image (if none, fractal background is generated)
   -p  purge old build files instead of running
 ```
+
+## TODO/Ideas
+* [ ] Add ability to handle multiple stickers by aligning them randomly on a provided sheet size. Should exit and notify the user if stickers don't fit.

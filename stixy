@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Requires cairosvg, potrace, imagemagick and pymupdf
+# Requires cairosvg, potrace, imagemagick and qpdf
 set -e
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/stixy"
 
@@ -159,11 +159,8 @@ cairosvg "${prepdir}/${base}-traced.svg" \
 	--output-height "$bg_h" \
 	-d 300 \
 	-o "${prepdir}/${base}-traced.pdf"
-pdflayers "${prepdir}/${base}-composite.pdf" \
+qpdf --empty --pages \
+	"${prepdir}/${base}-composite.pdf" \
 	"${prepdir}/${base}-traced.pdf" \
+	-- \
 	"$outfile"
-# qpdf --empty --pages \
-# 	"${prepdir}/${base}-composite.pdf" \
-# 	"${prepdir}/${base}-traced.pdf" \
-# 	-- \
-# 	"$outfile"
